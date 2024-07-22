@@ -1,0 +1,576 @@
+3. Develop a Django app that performs student registration to a course. It
+should also display list of students registered for any selected course.
+Create students and course as models with enrolment as ManyToMany
+field.
+Create another app lab22
+Prepare the backend (database) for this app
+Install MYSQL using WAMP
+One can download WAMP at: https://sourceforge.net/projects/wampserver/
+After installation of WAMP, open phpMyAdmin:
+Default username is: root
+No Password 
+Create a database using Databases tab. Let the name of database be sc
+Open a new terminal and type the following:
+pip install mysqlclient
+PS C:\Users\ISE\fsd> pip install mysqlclient
+Make following changes in settings.py of first folder:
+DATABASES = {
+'default': {
+'ENGINE': 'django.db.backends.mysql',
+'NAME': 'sc',
+'HOST':'localhost',
+'USER':'root',
+'PASSWORD':'',
+'PORT':3306,
+}
+}
+Then, in lab22 subfolder, make following changes to models.py:
+from django.db import models
+# Create your models here.
+class Course(models.Model):
+cname = models.CharField(max_length=10)
+ccode = models.CharField(max_length=30)
+credits = models.IntegerField()
+def __str__(self):
+return self.cname
+class Students(models.Model):
+name = models.CharField(max_length=30)
+usn = models.CharField(max_length=50)
+sem = models.IntegerField()
+branch = models.CharField(max_length=30)
+sce = models.ManyToManyField(Course)
+def __str__(self):
+return self.name
+In your settings.py file, locate the INSTALLED_APPS list and add 'lab22' to it like this:
+INSTALLED_APPS = [
+'django.contrib.admin',
+'django.contrib.auth',
+'django.contrib.contenttypes',
+'django.contrib.sessions',
+'django.contrib.messages',
+'django.contrib.staticfiles',
+'lab22',
+]
+Then open a new terminal and type following commands one by one
+python manage.py makemigrations lab22
+python manage.py sqlmigrate lab22 0001
+python manage.py migrate
+After these commands, all backend tables will be automatically created
+Using phpMyAdmin enter data for student and courses table
+Student:
+INSERT INTO `lab22_students`(`id`, `name`, `usn`, `sem`, `branch`) VALUES
+(1,'Rona','R001',5,'CSE')
+INSERT INTO `lab22_students`(`id`, `name`, `usn`, `sem`, `branch`) VALUES
+(2,'Mona','R002',5,'CSE')
+INSERT INTO `lab22_students`(`id`, `name`, `usn`, `sem`, `branch`) VALUES
+(3,'Sona','R003',5,'CSE')
+INSERT INTO `lab22_students`(`id`, `name`, `usn`, `sem`, `branch`) VALUES
+(4,'Moni','R005',5,'ISE')
+Course:
+INSERT INTO `lab22_course`(`id`, `cname`, `ccode`, `credits`) VALUES
+(1,'DBMS','C001',4)
+INSERT INTO `lab22_course`(`id`, `cname`, `ccode`, `credits`) VALUES (2,'OS','C002',3)
+INSERT INTO `lab22_course`(`id`, `cname`, `ccode`, `credits`) VALUES
+(3,'PYTHON','C003',4)
+INSERT INTO `lab22_course`(`id`, `cname`, `ccode`, `credits`) VALUES
+(4,'RUBY','C004',3)
+Next, inside lab22 subfolder create templates subfolder
+Inside templates subfolder, store following HTML files:
+sentry.html
+<html>
+<body>
+<form method="post" action="">
+{% csrf_token %}
+<input type="text" name="sname" placeholder="Student Name">
+<input type="text" name="cname" placeholder="Course Name">
+<input type="submit" value="Submit">
+</form>
+</body>
+</html>
+register.html
+<html>
+<body>
+{{ message }}
+</body>
+</html>
+view.html
+<html>
+<body>
+<h1>Select the course</h1>
+<form method="post" action="displaystudents/">
+{% csrf_token %}
+<select name="course" id="course">
+{% for course in courses %}
+<option value="{{ course.id }}">{{ course.cname }}</option>
+{% endfor %}
+</select>
+<input type="submit" value="Submit">
+</form>
+</body>
+</html>
+displaystudents.html
+<html>
+<body>
+<h1>List of Student Names </h1>
+<ul>
+{% for name in l %}
+<li>{{ name }}</li>
+{% endfor %}
+</ul>
+</body>
+</html>
+Make following changes in views.py inside lab22 subfolder:
+from django.shortcuts import render
+from lab22.models import Students,Course
+from django.http import HttpResponse
+# Create your views here.
+def register(request):
+if request.method == 'POST':
+sname = request.POST.get('sname')
+cname = request.POST.get('cname')
+students = Students.objects.filter(name=sname).values()
+if students:
+print(students.first())
+sid=students.first()['id']
+s=Students.objects.get(id=sid)
+courses = Course.objects.filter(cname=cname).values()
+if courses:
+cid=courses.first()['id']
+c=Course.objects.get(id=cid)
+s.sce.add(c)
+return render(request,'register.html', {'message':
+'Successfully registered'})
+else:
+return render(request,'register.html',{'message':
+'Course not found'})
+else:
+return render(request,'register.html',{'message': 'Student
+not found'})
+else:
+return render(request,'sentry.html')
+def viewstudent(request):
+courses = Course.objects.all().values()
+if courses:
+return render(request,'view.html', {'courses':courses})
+else:
+return 'Student not found'
+def displaystudents(request):
+cid = request.POST.get('course')
+students=Students.objects.all()
+l=list()
+for s in students:
+ss=s.sce.filter(id=cid).values()
+if ss:
+l.append(s.name)
+if len(l)>=1:
+return render(request,'displaystudents.html', {'l':l})
+else:
+return HttpResponse("NO Students found for the course")
+Make following changes to urls.py in first subfolder
+from django.contrib import admin
+from django.urls import path
+from lab22.views import register, viewstudent, displaystudents
+urlpatterns = [
+path('admin/', admin.site.urls),
+path('register/',register),
+path('viewstudent/',viewstudent),
+path('viewstudent/displaystudents/',displaystudents),
+]
+
+
+
+
+
+Laboratory Component:
+1. For student and course models created in Lab experiment for Module2,
+register admin interfaces, perform migrations and illustrate data entry
+through admin forms.
+In the same subfolder lab22, make following changes to admin.py
+from django.contrib import admin
+from lab22.models import Students, Course
+# Register your models here.
+admin.site.register(Students)
+admin.site.register(Course)
+Create an admin account by typing the command
+python manage.py createsuperuser
+PS C:\Users\ISE\fsd> python manage.py createsuperuser
+Make following changes to url.py in first folder:
+from django.contrib import admin
+urlpatterns = [
+path('admin/', admin.site.urls),
+]
+
+
+
+
+2. Develop a Model form for student that contains his topic chosen for
+project, languages used and duration with a model called project.
+Make following changes to models.py in lab22 subfolder:
+from django.db import models
+from django.forms import ModelForm
+# Create your models here.
+class Project(models.Model):
+student=models.ForeignKey(Students,on_delete=models.CASCADE)
+topic=models.CharField(max_length=100)
+languages=models.CharField(max_length=100)
+duration=models.IntegerField()
+def __str__(self):
+return self.topic
+class ProjectReg(ModelForm):
+required_css_class = 'required'
+class Meta:
+model=Project
+fields=('student','topic','languages','duration')
+Then open a new terminal and type following commands one by one:
+python manage.py makemigrations lab22
+python manage.py sqlmigrate lab22 0001
+python manage.py migrate
+After these commands, all backend tables will be automatically created
+Create a HTML file project_reg.html inside templates subfolder:
+{% if submitted %}
+<p class="success">
+Project Registration is successful. Thank you.
+</p>
+{% else %}
+<form action="" method="post" novalidate>
+<table>
+{{ form.as_table }}
+<tr>
+<td>&nbsp;</td>
+<td><input type="submit" value="Submit"></td>
+</tr>
+</table>
+{% csrf_token %}
+</form>
+{% endif %}
+Make following changes to views.py:
+from django.shortcuts import render
+from django.http import HttpResponse,HttpResponseRedirect,FileResponse
+from lab22.models import ProjectReg
+def add_project(request):
+submitted = False
+if request.method == 'POST':
+form = ProjectReg(request.POST)
+if form.is_valid():
+form.save()
+return HttpResponseRedirect('/add_project/?submitted=True')
+else:
+form = ProjectReg()
+if 'submitted' in request.GET:
+submitted = True
+return render(request, 'project_reg.html', {'form': form, 'submitted':
+submitted})
+Make following changes to urls.py in first folder
+from django.contrib import admin
+from django.urls import path
+from lab22.views import add_project
+urlpatterns = [
+path('admin/', admin.site.urls),
+path('add_project/',add_project),
+]
+
+
+
+
+
+Laboratory Component:
+1. For students enrolment developed in Module 2, create a generic class
+view which displays list of students and detail view that displays student
+details for any selected student in the list.
+Make following changes to views.py inside lab22
+from django.shortcuts import render
+from lab22.models import Students,Course
+from django.http import HttpResponse
+from django.http import HttpResponse,HttpResponseRedirect,FileResponse
+from lab22.models import ProjectReg
+from django.views import generic
+class StudentListView(generic.ListView):
+model = Students
+template_name = 'student_list.html'
+class StudentDetailView(generic.DetailView):
+model = Students
+template_name = "student_detail.html"
+Adding following html files to templates folder inside lab22
+student_list.html
+<h1>List of Students</h1>
+{% if students_list %}
+<table border>
+{% for student in students_list %}
+<tr>
+<td> <a href="student_detail/{{student.pk}}" target=_blank>
+{{student.name}} </a>
+</td>
+<td> Courses:
+{% for course in student.sce.all %}
+<span>{{course.cname}}</span>
+{% endfor %}
+</td>
+</tr>
+{% endfor %}
+</table>
+{% else %}
+<p>There are no students.</p>
+{% endif %}
+student_detail.html
+<h1>Name: {{ students.name }}</h1>
+<h1>Sem : {{ students.sem}}</h1>
+<h1>USN : {{ students.usn }}</h1>
+<h1>Branch : {{ students.branch }}</h1>
+Make following changes to urls.py inside first folder
+from django.urls import path
+from lab22.views import StudentListView, StudentDetailView
+urlpatterns = [
+path('student_list/',StudentListView.as_view()),
+path('student_list/student_detail/<int:pk>/',StudentDetailView.as_view()),
+]
+
+
+
+
+
+2. Develop example Django app that performs CSV and PDF generation
+for any models created in previous laboratory component.
+Install following in a terminal before proceeding:
+pip install reportlab
+Make following changes to views.py inside lab22 subfolder:
+from django.shortcuts import render
+from lab22.models import Students,Course
+from django.http import HttpResponse,HttpResponseRedirect,FileResponse
+from reportlab.pdfgen import canvas
+import csv
+def download_csv(queryset):
+opts = queryset.model._meta
+model = queryset.model
+response = HttpResponse(content_type='text/csv')
+# force download.
+response['Content-Disposition'] = 'attachment;filename=export.csv'
+# the csv writer
+writer = csv.writer(response)
+field_names = [field.name for field in opts.fields]
+# Write a first row with header information
+writer.writerow(field_names)
+for obj in queryset:
+writer.writerow([getattr(obj, field) for field in field_names])
+return response
+def download(request):
+data = download_csv(Course.objects.all())
+return HttpResponse (data, content_type='text/csv')
+def generate_pdf_file():
+from io import BytesIO
+buffer = BytesIO()
+p = canvas.Canvas(buffer)
+# Create a PDF document
+courses = Course.objects.all()
+p.drawString(100, 750, "Course Details")
+y = 700
+for course in courses:
+p.drawString(100, y, f"Title: {course.cname}")
+p.drawString(100, y - 20, f"Code: {course.ccode}")
+p.drawString(100, y - 40, f"Credits: {course.credits}")
+y -= 60
+p.showPage()
+p.save()
+buffer.seek(0)
+return buffer
+def generate_pdf(request):
+response = FileResponse(generate_pdf_file(),
+as_attachment=True,
+filename='course_details.pdf')
+return response
+make following changes to urls.py inside first folder
+from django.urls import path
+from lab22.views import StudentListView, StudentDetailView, download,
+generate_pdf
+urlpatterns = [
+path('download/',download),
+path('generate_pdf_file/',generate_pdf),
+]
+Run URLS in browser:
+http://127.0.0.1:8000/download/
+ CSV file gets downloaded
+http://127.0.0.1:8000/generate_pdf_file/
+ PDF file gets downloaded
+
+
+
+
+
+Laboratory Component:
+1. Develop a registration page for student enrolment as done in Module 2
+but without page refresh using AJAX.
+Create another app lab31
+Open a new terminal and type following command
+pip install --upgrade django-ajax-selects
+Create a templates folder inside lab31
+Make following changes to settings.py in first folder
+import os
+TEMPLATES = [
+{
+'BACKEND': 'django.template.backends.django.DjangoTemplates',
+'DIRS': [os.path.join(BASE_DIR,
+'lab21/templates'),os.path.join(BASE_DIR, 'lab31/templates'),],
+'APP_DIRS': True,
+'OPTIONS': {
+'context_processors': [
+'django.template.context_processors.debug',
+'django.template.context_processors.request',
+'django.contrib.auth.context_processors.auth',
+'django.contrib.messages.context_processors.messages',
+],
+},
+},
+]
+Inside templates folder, create following HTML file:
+registerAJ.html
+<html>
+<body>
+{{ message }}
+</body
+</html>
+sentryAJ.html
+<html>
+<script
+src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js">
+</script>
+<body>
+<form method="post" action="">
+{% csrf_token %}
+<input type="text" name="sname" id="sname"
+placeholder="Student Name"><br>
+<input type="text" name="cname" id="cname"
+placeholder="Course Name"><br>
+<input type="button" value="Submit" id="submitBtn">
+</form>
+<script>
+$(document).ready(function() {
+$("#submitBtn").click(function(){
+var sname = $('#sname').val();
+var cname = $('#cname').val();
+$.ajax({
+url: 'http://127.0.0.1:8000/registerAJ/',
+type: 'POST',
+data: {sname: sname, cname:cname,
+csrfmiddlewaretoken: "{{ csrf_token }}",},
+success: function(data){
+alert(data);
+//window.location.href = data;
+}
+});
+});
+});
+</script>
+</body>
+</html>
+Make following changes to views.py inside lab31
+from django.shortcuts import render
+from lab22.models import Students,Course
+from django.http import HttpResponse
+# Create your views here.
+def registerAJ(request):
+if request.method == 'POST':
+sname = request.POST.get('sname')
+cname = request.POST.get('cname')
+students = Students.objects.filter(name=sname).values()
+if students:
+print(students.first())
+sid=students.first()['id']
+s=Students.objects.get(id=sid)
+courses = Course.objects.filter(cname=cname).values()
+if courses:
+cid=courses.first()['id']
+c=Course.objects.get(id=cid)
+s.sce.add(c)
+return render(request,'registerAJ.html', {'message':
+'Successfully registered'})
+else:
+return render(request,'registerAJ.html',{'message':
+'Course not found'})
+else:
+return render(request,'registerAJ.html',{'message':
+'Student not found'})
+else:
+return render(request,'sentryAJ.html')
+Make following changes to urls.py inside first folder
+from django.contrib import admin
+from django.urls import path
+from lab22.views import register, viewstudent, displaystudents
+from lab22.views import add_project
+from lab22.views import StudentListView, StudentDetailView, download,
+generate_pdf
+from lab31.views import registerAJ, searchAJ
+urlpatterns = [
+path('registerAJ/',registerAJ),
+]
+
+
+
+
+2. Develop a search application in Django using AJAX that displays
+courses enrolled by a student being searched.
+Create an HTML file search.html inside templates subfolder
+<html>
+<script
+src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js">
+</script>
+<body>
+<input type="text" placeholder="Student Name" id="sname"><br>
+<input type="button" id="stBtn" value="Search">
+<div id="res"></div>
+<script>
+$(document).ready(function() {
+$("#stBtn").click(function(){
+var sname = $('#sname').val();
+$.ajax({
+url: 'http://127.0.0.1:8000/searchAJ/',
+type: 'POST',
+data: {sname: sname, csrfmiddlewaretoken: "{{
+csrf_token }}",},
+success: function(data){
+$("#res").html(data);
+//window.location.href = data;
+}
+});
+});
+});
+</script>
+</body>
+</html>
+Make following changes to views.py inside lab31
+from django.shortcuts import render
+from lab22.models import Students,Course
+from django.http import HttpResponse
+def searchAJ(request):
+if request.method == 'POST':
+sname = request.POST.get('sname')
+students=Students.objects.filter(name=sname)
+l=list()
+sstr=''
+if not students.exists():
+return HttpResponse("Student not found")
+for s in students:
+ss=s.sce.all()
+print(ss)
+if ss:
+i=0
+sstr+="<table border><tr><th>Course Name</th><th>Course
+Code</th></tr>"
+for c in ss:
+sstr+="<tr><th>"+c.cname+"</th><td>"+c.ccode+"</td></tr>"
+i+=1
+else:
+sstr+="<tr><th>No courses</th></tr>"
+return HttpResponse(sstr)
+else:
+return render(request,'search.html')
+Make following changes to urls.py inside first folder
+from django.contrib import admin
+from django.urls import path
+from lab22.views import register, viewstudent, displaystudents
+from lab22.views import add_project
+from lab22.views import StudentListView, StudentDetailView, download,
+generate_pdf
+from lab31.views import registerAJ, searchAJ
+urlpatterns = [
+path('registerAJ/',registerAJ),
+path('searchAJ/',searchAJ),
+]
